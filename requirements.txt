@@ -1,9 +1,9 @@
 streamlit
 openai
-langchain
+langchain==0.2.14
 langchain-community
 langchain-openai
-langchain-text-splitters
+langchain-text-splitters==0.2.2
 pypdf
 faiss-cpu
 sentence-transformers
