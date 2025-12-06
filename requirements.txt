@@ -1,0 +1,10 @@
+streamlit
+openai
+langchain
+langchain-community
+langchain-openai
+langchain-text-splitters
+pypdf
+faiss-cpu
+sentence-transformers
+protobuf==3.20.3
