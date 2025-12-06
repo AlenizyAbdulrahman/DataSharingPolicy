@@ -8,7 +8,7 @@ Built using an advanced **RAG (Retrieval-Augmented Generation)** pipeline with *
 
 ## 🚀 Live Demo
 
-🔗 [Click here to interact with the Data Sharing Assistant](https://your-app-url-here.streamlit.app/)
+🔗 [Click here to interact with the Data Sharing Assistant](https://datasharingpolicy-vccud9xjrv2dsdlrbm9sbf.streamlit.app/)
 
 ---
 
@@ -44,10 +44,10 @@ Built using an advanced **RAG (Retrieval-Augmented Generation)** pipeline with *
 
 ## ✅ Use Cases
 
-- [cite_start]**Government Entities**: Verifying the correct procedure for submitting data requests via the Government Service Bus[cite: 40, 64].
-- [cite_start]**Compliance Officers**: Checking response deadlines (10 days) and rejection protocols[cite: 129, 131].
-- [cite_start]**Data Stewards**: Understanding responsibilities regarding data quality and "Single Source of Truth" principles[cite: 72].
-- [cite_start]**Legal Advisors**: Quickly finding dispute resolution mechanisms and liability clauses[cite: 227, 290].
+- **Government Entities**: Verifying the correct procedure for submitting data requests via the Government Service Bus.
+- **Compliance Officers**: Checking response deadlines (10 days) and rejection protocols.
+- **Data Stewards**: Understanding responsibilities regarding data quality and "Single Source of Truth" principles.
+- **Legal Advisors**: Quickly finding dispute resolution mechanisms and liability clauses.
 
 ---
 
@@ -74,8 +74,8 @@ For official interpretation of regulations, always refer to the original policy 
 
 ```bash
 # Clone the repository
-git clone [https://github.com/AlenizyAbdulrahman/DataSharingPolicy.git](https://github.com/AlenizyAbdulrahman/DataSharingPolicy.git)
-cd DataSharingChatbot
+git clone https://github.com/AlenizyAbdulrahman/DataSharingPolicy.git
+cd DataSharingPolicy
 
 # Create a virtual environment
 python -m venv venv
