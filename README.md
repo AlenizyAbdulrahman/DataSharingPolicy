@@ -14,7 +14,7 @@ Built using an advanced **RAG (Retrieval-Augmented Generation)** pipeline with *
 
 ## 🧠 Features
 
-- [cite_start]💬 **Context-Aware Q&A**: Answers queries based strictly on the official Data Sharing Policy document[cite: 1, 4].
+- 💬 **Context-Aware Q&A**: Answers queries based strictly on the official Data Sharing Policy document.
 - 🎯 **High-Precision Retrieval**: Utilizes a two-stage retrieval process (Vector Search + Cross-Encoder Re-ranking) to ensure the most relevant clauses are cited.
 
 ---
