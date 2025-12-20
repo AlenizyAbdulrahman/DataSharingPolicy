@@ -14,6 +14,7 @@ from langchain.schema import Document
 from langchain.retrievers import ContextualCompressionRetriever
 from langchain.retrievers.document_compressors import CrossEncoderReranker
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
+import unicodedata
 
 # === Configuration ===
 os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
@@ -41,21 +42,6 @@ def clean_page_content(text):
     """
     if not text: return ""
     
-    # Patterns to match Arabic headers/footers in your specific PDF
-    patterns = [
-        r"SDAIA",
-        r"الهيئة السعودية للبيانات",
-        r"والذكاء الاصطناعي",
-        r"Saudi Data & AI Authority",
-        r"Data & AI Authority",
-        r"تصنيف الوثيقة: عام",
-        r"رقم الإصدار 2.0",
-        r"^\d+$"  # Standalone page numbers
-    ]
-    
-    for p in patterns:
-        text = re.sub(p, "", text, flags=re.MULTILINE | re.IGNORECASE)
-    
     # Remove extra newlines and spaces
     text = re.sub(r'\n\s*\n', '\n', text).strip()
     return text
@@ -73,17 +59,17 @@ def process_policy_document(file_path: str, source_name: str):
     full_text = "\n".join([clean_page_content(p.page_content) for p in raw_pages])
     
     # # 2. Define High-Level Separators based on ARABIC document structure
-    # separators = [
-    #     "\nأولاً", "\nثانياً", "\nثالثاً", "\nرابعاً", 
-    #     "\nخامساً", "\nسادساً", "\nسابعاً", "\nثامناً", 
-    #     "\nالتعريفات", "\nالمبادئ الرئيسية"
-    # ]
+    separators = [
+        "\nأولاً", "\nثانياً", "\nثالثاً", "\nرابعاً", 
+        "\nخامساً", "\nسادساً", "\nسابعاً", "\nثامناً", 
+        "\nالتعريفات", "\nالمبادئ الرئيسية"
+    ]
     
     # 3. Use Recursive Splitter to keep legal clauses together
     text_splitter = RecursiveCharacterTextSplitter(
-        separators= ["\n\n", "\n", "."], 
-        chunk_size=1000, 
-        chunk_overlap=300,
+        separators= separators+["\n\n", "\n", "."], 
+        chunk_size=2000, 
+        chunk_overlap=500,
         keep_separator=True 
     )
     
@@ -158,18 +144,16 @@ def initialize():
     prompt_template = PromptTemplate(
         input_variables=["chat_history", "context", "question"],
         template="""
-        You are an expert Data Governance Consultant specialized in SDAIA's Data Sharing Policy.
+        You are an expert Data Governance Consultant. 
         
-        Guidelines:
-        1. Answer strictly based on the provided Context.
-        2. Answer in Arabic (unless asked otherwise).
-        3. If the answer is not in the context, say "I cannot find this information in the policy."
-
+        CRITICAL RULES:
+        1. Answer strictly based on the Context.
+        2. Do NOT confuse "Paragraph Number" (e.g., Paragraph 8) with a value (e.g., 8 days). 
+           Look for the actual duration mentioned in the text (e.g., 10 days).
+        3. If the context refers to another paragraph (e.g., "as per Paragraph 8") but does not contain the value, say "Context missing details".
+        
         Context:
         {context}
-
-        Chat History:
-        {chat_history}
 
         Question: {question}
         Answer:
