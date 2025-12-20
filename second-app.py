@@ -3,7 +3,6 @@ import streamlit as st
 import os
 import re
 import shutil
-# ⚠️ CHANGED: Using PyMuPDFLoader (Fitz) - Best for Arabic
 from langchain_community.document_loaders import PyMuPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
@@ -73,17 +72,17 @@ def process_policy_document(file_path: str, source_name: str):
     # 1. Clean and Merge Content
     full_text = "\n".join([clean_page_content(p.page_content) for p in raw_pages])
     
-    # 2. Define High-Level Separators based on ARABIC document structure
-    separators = [
-        "\nأولاً", "\nثانياً", "\nثالثاً", "\nرابعاً", 
-        "\nخامساً", "\nسادساً", "\nسابعاً", "\nثامناً", 
-        "\nالتعريفات", "\nالمبادئ الرئيسية"
-    ]
+    # # 2. Define High-Level Separators based on ARABIC document structure
+    # separators = [
+    #     "\nأولاً", "\nثانياً", "\nثالثاً", "\nرابعاً", 
+    #     "\nخامساً", "\nسادساً", "\nسابعاً", "\nثامناً", 
+    #     "\nالتعريفات", "\nالمبادئ الرئيسية"
+    # ]
     
     # 3. Use Recursive Splitter to keep legal clauses together
     text_splitter = RecursiveCharacterTextSplitter(
-        separators=separators + ["\n\n", "\n", "."], 
-        chunk_size=2000, 
+        separators= ["\n\n", "\n", "."], 
+        chunk_size=1000, 
         chunk_overlap=300,
         keep_separator=True 
     )
