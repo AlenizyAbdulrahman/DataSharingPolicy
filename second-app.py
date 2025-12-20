@@ -2,8 +2,9 @@
 import streamlit as st
 import os
 import re
-import json
-from langchain_community.document_loaders import PyPDFLoader
+import shutil
+# ⚠️ CHANGED: Using PyMuPDFLoader (Fitz) - Best for Arabic
+from langchain_community.document_loaders import PyMuPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_community.vectorstores import FAISS
@@ -17,7 +18,7 @@ from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 
 # === Configuration ===
 os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
-st.set_page_config(page_title="Data Sharing Assistant", layout="wide")
+st.set_page_config(page_title="SDAIA Data Sharing Assistant", layout="wide")
 st.title("🛡️ Data Sharing Policy Assistant (SDAIA)")
 
 # === Sidebar: Developer Credits ===
@@ -25,65 +26,66 @@ with st.sidebar:
     st.divider()
     st.markdown("### 👨‍💻 Developers Team")
     st.caption("Proudly developed by:")
-    
-    # Replace these with your actual names
     st.markdown("• **Abdulrahman Alenizy**") 
     st.markdown("• **Abdulaiziz Alzuaiber**")
     st.markdown("• **Ayoub Alzahim**")
     st.markdown("• **Hamad Dahash**")
     st.markdown("• **Khalid Alotaibi**")
-    
     st.markdown("---")
     st.markdown("© 2025 Data Sharing Policy")
 
-# === 1. Custom Cleaning & Extraction Strategy ===
+# === 1. Custom Cleaning Strategy ===
 def clean_page_content(text):
     """
-    Removes headers, footers, and recurring noise found in the SDAIA document
-    to improve embedding quality.
+    Standard cleaning for Fitz extracted text.
+    Fitz usually fixes the order, so we just remove noise.
     """
-    # Remove header/footer noise patterns observed in the file
+    if not text: return ""
+    
+    # Patterns to match Arabic headers/footers in your specific PDF
     patterns = [
         r"SDAIA",
-        r"Saudi Data & AI Authority",
         r"الهيئة السعودية للبيانات",
         r"والذكاء الاصطناعي",
-        r"Document Classification: Public",
-        r"Version \d+\.\d+",
-        r"^\d+$" # Standalone page numbers
+        r"Saudi Data & AI Authority",
+        r"Data & AI Authority",
+        r"تصنيف الوثيقة: عام",
+        r"رقم الإصدار 2.0",
+        r"^\d+$"  # Standalone page numbers
     ]
     
     for p in patterns:
         text = re.sub(p, "", text, flags=re.MULTILINE | re.IGNORECASE)
     
-    # Compress multiple newlines
+    # Remove extra newlines and spaces
     text = re.sub(r'\n\s*\n', '\n', text).strip()
     return text
 
+# === 2. Document Processing (Using PyMuPDF) ===
 def process_policy_document(file_path: str, source_name: str):
     """
-    Loads PDF and splits based on the specific 'First:', 'Second:' structure 
-    of the Data Sharing Policy.
+    Loads PDF using PyMuPDF (Fitz) and splits based on structure.
     """
-    loader = PyPDFLoader(file_path)
+    # ⚠️ CHANGED: Using PyMuPDFLoader
+    loader = PyMuPDFLoader(file_path)
     raw_pages = loader.load()
     
-    # 1. Merge all pages into one text block for coherent splitting
+    # 1. Clean and Merge Content
     full_text = "\n".join([clean_page_content(p.page_content) for p in raw_pages])
     
-    # 2. Define High-Level Separators based on document structure
-    # The document uses "First:", "Second:", etc. and "Definitions"
+    # 2. Define High-Level Separators based on ARABIC document structure
     separators = [
-        "\nFirst:", "\nSecond:", "\nThird:", "\nFourth:", 
-        "\nFifth:", "\nSixth:", "\nSeventh:", "\nEighth:", "\nDefinitions"
+        "\nأولاً", "\nثانياً", "\nثالثاً", "\nرابعاً", 
+        "\nخامساً", "\nسادساً", "\nسابعاً", "\nثامناً", 
+        "\nالتعريفات", "\nالمبادئ الرئيسية"
     ]
     
-    # 3. Use Recursive Splitter with specific separators to keep sections together
+    # 3. Use Recursive Splitter to keep legal clauses together
     text_splitter = RecursiveCharacterTextSplitter(
-        separators=separators + ["\n\n", "\n", "."], # Fallback separators
-        chunk_size=2000, # Large chunk size to keep full clauses together
-        chunk_overlap=200,
-        keep_separator=True # Keep the "First:", "Second:" in the text
+        separators=separators + ["\n\n", "\n", "."], 
+        chunk_size=2000, 
+        chunk_overlap=300,
+        keep_separator=True 
     )
     
     chunks = text_splitter.split_text(full_text)
@@ -91,7 +93,7 @@ def process_policy_document(file_path: str, source_name: str):
     # 4. Convert back to Documents
     documents = []
     for chunk in chunks:
-        # Attempt to extract the section title for metadata
+        # Extract first line as section title
         first_line = chunk.strip().split('\n')[0]
         section_title = first_line[:50] + "..." if len(first_line) > 50 else first_line
         
@@ -103,7 +105,7 @@ def process_policy_document(file_path: str, source_name: str):
         
     return documents
 
-# === 3. Initialization (Updated with Re-ranking) ===
+# === 3. Initialization (Advanced RAG Pipeline) ===
 @st.cache_resource
 def initialize():
     doc_dir = "./documents"
@@ -112,12 +114,12 @@ def initialize():
     # Ensure directory exists
     if not os.path.exists(doc_dir):
         os.makedirs(doc_dir)
-        st.error(f"Please place 'DataSharingPolicy.pdf' in the '{doc_dir}' folder.")
+        st.error(f"Please place 'DataSharingPolicyAR.pdf' in the '{doc_dir}' folder.")
         return None, None
 
     # Load Documents
     for filename in os.listdir(doc_dir):
-        if filename.endswith(".pdf"):
+        if filename.endswith("DataSharingPolicyAR.pdf"):
             full_path = os.path.join(doc_dir, filename)
             source_name = os.path.splitext(filename)[0]
             docs = process_policy_document(full_path, source_name)
@@ -131,55 +133,53 @@ def initialize():
     vector_store = FAISS.from_documents(all_docs, embedding_model)
     
     # 2. Base Retriever (High Recall)
-    # We fetch 20 documents here to ensure we cast a wide net initially.
     base_retriever = vector_store.as_retriever(
-        search_type="mmr", # Still use MMR for initial diversity
+        search_type="mmr", 
         search_kwargs={"k": 20, "lambda_mult": 0.7} 
     )
 
     # 3. Re-ranking (High Precision)
-    # We use a CrossEncoder (BGE-Reranker is excellent for this).
-    # This runs locally on CPU (or GPU if available).
-    rerank_model = HuggingFaceCrossEncoder(model_name="BAAI/bge-reranker-base")
-    
-    # Configure the compressor to pick the top 5 most relevant from the 20
-    compressor = CrossEncoderReranker(model=rerank_model, top_n=5)
-    
-    # Combine them into a Compression Retriever
-    compression_retriever = ContextualCompressionRetriever(
-        base_compressor=compressor,
-        base_retriever=base_retriever
-    )
+    try:
+        rerank_model = HuggingFaceCrossEncoder(model_name="BAAI/bge-reranker-base")
+        compressor = CrossEncoderReranker(model=rerank_model, top_n=5)
+        compression_retriever = ContextualCompressionRetriever(
+            base_compressor=compressor,
+            base_retriever=base_retriever
+        )
+        final_retriever = compression_retriever
+    except Exception as e:
+        st.warning(f"Re-ranker model failed: {e}. Falling back to simple retrieval.")
+        final_retriever = base_retriever
 
     # 4. LLM & Memory
     llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.1)
     memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True, output_key="answer")
 
-    # 5. Prompt Template
+    # 5. System Prompt (Arabic)
     prompt_template = PromptTemplate(
         input_variables=["chat_history", "context", "question"],
         template="""
-                    You are a Data Governance Consultant specialized in SDAIA's Data Sharing Policy.
-                    Answer the user's question strictly based on the context provided.
+        You are an expert Data Governance Consultant specialized in SDAIA's Data Sharing Policy.
+        
+        Guidelines:
+        1. Answer strictly based on the provided Context.
+        2. Answer in Arabic (unless asked otherwise).
+        3. If the answer is not in the context, say "I cannot find this information in the policy."
 
-                    Guidelines:
-                    1. If the user asks for a procedure, list the steps clearly.
-                    2. If not in context, say so.
+        Context:
+        {context}
 
-                    Context:
-                    {context}
+        Chat History:
+        {chat_history}
 
-                    Chat History:
-                    {chat_history}
-
-                    Question: {question}
-                    Answer:
-                    """
+        Question: {question}
+        Answer:
+        """
     )
 
     qa_chain = ConversationalRetrievalChain.from_llm(
         llm=llm,
-        retriever=compression_retriever, # <--- Use the Re-ranking Retriever here
+        retriever=final_retriever, 
         memory=memory,
         return_source_documents=True,
         combine_docs_chain_kwargs={"prompt": prompt_template},
@@ -196,38 +196,37 @@ if qa_chain:
     if "chat_display" not in st.session_state:
         st.session_state.chat_display = []
 
-    if st.button("🧹 Clear Chat"):
+    if st.sidebar.button("🧹 Clear Chat"):
         st.session_state.chat_display = []
         memory.clear()
         st.rerun()
 
-    for user_msg, bot_msg, sources in st.session_state.chat_display:
+    for user_msg, bot_msg in st.session_state.chat_display:
         with st.chat_message("user"):
             st.markdown(user_msg)
         with st.chat_message("assistant"):
             st.markdown(bot_msg)
-            # with st.expander("📚 Source Sections"):
+            # with st.expander("📚 مصادر الإجابة"):
             #     for doc in sources:
-            #         st.markdown(f"- **{doc.metadata.get('source')}** | *{doc.metadata.get('section')}*")
+            #          st.markdown(f"- **{doc.metadata.get('source')}** | *{doc.metadata.get('section')}*")
 
-    query = st.chat_input("Ask about Data Sharing Controls, Principles, or Procedures...")
+    query = st.chat_input("اسأل عن سياسة مشاركة البيانات...")
     if query:
         with st.chat_message("user"):
             st.markdown(query)
 
-        with st.spinner("Analyzing Policy..."):
+        with st.spinner("جاري تحليل السياسة..."):
             result = qa_chain({"question": query})
             answer = result["answer"]
-            sources = result.get("source_documents", [])
+            # sources = result.get("source_documents", [])
 
         with st.chat_message("assistant"):
             st.markdown(answer)
-            # with st.expander("📚 Source Sections"):
+            # with st.expander("📚 مصادر الإجابة"):
             #     for doc in sources:
             #         st.markdown(f"- **{doc.metadata.get('source')}** | *{doc.metadata.get('section')}*")
 
-        st.session_state.chat_display.append((query, answer, sources))
+        st.session_state.chat_display.append((query, answer))
     
 else:
-    st.info("Please upload the 'DataSharingPolicy.pdf' to the documents folder to begin.")
-
+    st.info("⚠️ Please ensure `documents/DataSharingPolicyAR.pdf` exists.")
